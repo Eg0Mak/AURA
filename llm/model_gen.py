@@ -2,7 +2,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from dotenv import load_dotenv
 import torch
 import os
-from llm.prompt_templates import build_prompt
+from llm.promt_templates import build_prompt
 
 load_dotenv()
 
