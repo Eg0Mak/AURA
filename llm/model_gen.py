@@ -14,7 +14,14 @@ class LLMGenerator:
         print(f"Loading model: {model_name}")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        if device:
+            self.device = device
+        elif torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.backends.mps.is_available():
+            self.device = "mps"
+        else:
+            self.device = "cpu"
         self.model.to(self.device)
 
     def generate_answer(self, context: str, question: str, max_tokens: int = 200) -> str:
