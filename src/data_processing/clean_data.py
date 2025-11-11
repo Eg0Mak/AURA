@@ -72,3 +72,6 @@ def clean_csv(input_filename: str):
     print(len(data))
 
     return data
+
+if __name__ == "__main__":
+    clean_csv("websites_updated.csv")
