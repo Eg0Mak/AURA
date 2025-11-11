@@ -25,7 +25,7 @@ index = build_faiss_index(embeddings)
 
 # === 5. Пример поиска ===
 model = SentenceTransformer("intfloat/multilingual-e5-base")
-query = "Что делает Центральный банк России?"
+query = "Здравствуйте, когда смогу пользоваться кредитной картой?"
 query_vec = model.encode([query], normalize_embeddings=True)
 I, D = search_faiss(index, query_vec, top_k=TOP_K)
 
