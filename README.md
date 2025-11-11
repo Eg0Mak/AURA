@@ -5,9 +5,14 @@ rag_project/
 │
 ├── data/                     # исходные документы
 │   ├── raw/                  # сырые файлы (txt, pdf, docx)
-│   └── processed/            # очищенные тексты
-│
+│   |── processed/            # очищенные тексты
+│   └── chunks/               # чанки  
+|
 ├── src/
+|   ├── config/                   
+│   │   ├── embedding_model.py    # единая загрузка embedding-модели (из .env)
+│   │   └── llm_model.py          # (опционально) единая загрузка LLM
+|   |
 │   ├── data_preprocessing/
 │   │   └── clean_data.py     # очистка и нормализация текстов
 │   │
