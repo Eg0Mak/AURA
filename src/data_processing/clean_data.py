@@ -30,16 +30,14 @@ def clean_text(text: str, preserve_paragraphs: bool = False) -> str:
         text = re.sub(r"\n{2,}", "\n\n", text)
         text = re.sub(r"[ \t]+", " ", text)
     
-    # Убираем пробелы перед знаками пунктуации
+    # Убираем пробелы перед знаками пунктуации и двойные пробелы
     text = re.sub(r"\s+([,.!?;:])", r"\1", text)
-
-    # Убираем двойные пробелы
     text = re.sub(r" {2,}", " ", text)
 
     return text.strip()
 
 def clean_csv(input_filename: str):
-    """Обработка CSV: очистка текстов, удаление пропусков и дублей"""
+    """CSV processing: text cleaning, removing gaps and duplicates"""
     input_path = os.path.join(RAW_DATA_DIR, input_filename)
     output_path = os.path.join(PROCESSED_DATA_DIR, "clean_data.csv")
 
