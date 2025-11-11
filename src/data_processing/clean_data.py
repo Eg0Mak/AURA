@@ -19,6 +19,10 @@ def clean_text(text: str, preserve_paragraphs: bool = False) -> str:
     text = text.replace("\xa0", " ")
     text = re.sub(r"[©®™℠]", " ", text)
 
+    # Убирает длинные последовательности точек и _
+    text = re.sub(r"\.{3,}", " ", text)
+    text = re.sub(r"\_{2,}", " ", text)
+
     # Удаляем мусорные символы, но сохраняем нужные для e-mail, телефонов и знаков
     text = re.sub(r"[«»\"“”‘’\[\]{}<>|•■◆►]", " ", text)
 
