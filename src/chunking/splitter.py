@@ -1,5 +1,5 @@
 # splitter.py
-from config.embedding_model import embed_model
+from src.config.embbeding_model import embed_model
 from llama_index.core.node_parser import SemanticSplitterNodeParser
 from llama_index.core import Document
 import pandas as pd

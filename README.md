@@ -3,17 +3,17 @@
 ```text
 rag_project/
 │
-├── config/                     # вынесли из src
-│   ├── __init__.py
-│   ├── embedding_model.py      # единая загрузка embedding-модели (из .env)
-│   └── llm_model.py            # (опционально) единая загрузка LLM
-│
 ├── data/                       # исходные документы
 │   ├── raw/                    # сырые файлы (txt, pdf, docx)
 │   ├── processed/              # очищенные тексты
 │   └── chunks/                 # чанки  
 │
 ├── src/
+|   ├── config/
+│   │   ├── llm.py
+│   │   └── embedding_model.py  
+|   |
+|   |
 │   ├── data_preprocessing/
 │   │   └── clean_data.py       # очистка и нормализация текстов
 │   │
