@@ -10,7 +10,8 @@ rag_project/
 |
 ├── src/
 |   ├── config/                   
-│   │   ├── embedding_model.py    # единая загрузка embedding-модели (из .env)
+│   │   ├── __init__.py
+|   |   |── embedding_model.py    # единая загрузка embedding-модели (из .env)
 │   │   └── llm_model.py          # (опционально) единая загрузка LLM
 |   |
 │   ├── data_preprocessing/
