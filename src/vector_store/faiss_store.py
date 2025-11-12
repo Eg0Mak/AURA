@@ -5,13 +5,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 CHUNKS_DIR = os.getenv("CHUNKS_DIR", "data/chunks")
+INDEX_FILE = os.path.join(CHUNKS_DIR, "faiss.index")
 
 def build_faiss_index(embeddings):
+    """Строим или загружаем FAISS-индекс"""
+    if os.path.exists(INDEX_FILE):
+        print("Используем кэшированный FAISS-индекс...")
+        index = faiss.read_index(INDEX_FILE)
+        return index
+
+    print("Создаём новый FAISS-индекс...")
     d = embeddings.shape[1]
     index = faiss.IndexFlatIP(d)
     index.add(embeddings)
-    faiss.write_index(index, os.path.join(CHUNKS_DIR, "faiss.index"))
-    print(f"Индекс faiss сохранён")
+    faiss.write_index(index, INDEX_FILE)
+    print(f"Индекс FAISS сохранён: {INDEX_FILE}")
     return index
 
 def load_faiss_index():

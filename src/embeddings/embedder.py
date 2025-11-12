@@ -1,26 +1,35 @@
+# src/embeddings/embedder.py
 from src.config.embbeding_model import embed_model
 import numpy as np
-import json
+import pandas as pd
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 CHUNKS_DIR = os.getenv("CHUNKS_DIR", "data/chunks")
 
-def get_embeddings(model_name="intfloat/multilingual-e5-base"):
-    """Вычисляет эмбеддинги для всех чанков"""
+def get_embeddings(csv_name="chunks_semantic.csv"):
+    cache_file = os.path.join(CHUNKS_DIR, "embeddings.npy")
+    if os.path.exists(cache_file):
+        print("Используем кэшированные эмбеддинги...")
+        embeddings = np.load(cache_file)
+        df = pd.read_csv(os.path.join(CHUNKS_DIR, csv_name))
+        chunks = df.to_dict(orient="records")
+        return embeddings, chunks
 
-    chunks_path = os.path.join(CHUNKS_DIR, "chunks.json")
-    with open(chunks_path, "r", encoding="utf-8") as f:
-        chunks = json.load(f)
+    # Если кэша нет — считаем заново
+    df = pd.read_csv(os.path.join(CHUNKS_DIR, csv_name))
+    texts = df["chunk_text"].tolist()
+    embeddings = embed_model.get_batch_embeddings(texts)
+    embeddings = np.array(embeddings, dtype=np.float32)
 
-    texts = [c["chunk"] for c in chunks]
-    embeddings = embed_model.encode(texts, show_progress_bar=True, normalize_embeddings=True)
-
-    np.save(os.path.join(CHUNKS_DIR, "embeddings.npy"), embeddings)
+    np.save(cache_file, embeddings)
     print(f"Эмбеддинги сохранены: {embeddings.shape}")
 
-    return np.array(embeddings), chunks
+    chunks = df.to_dict(orient="records")
+    return embeddings, chunks
 
 if __name__ == "__main__":
     get_embeddings()
+
+    

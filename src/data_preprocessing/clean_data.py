@@ -69,9 +69,8 @@ def clean_csv(input_filename: str):
     data.to_csv(output_path, index=False)
 
     print(f"Cleaned data saved in: {output_path}")
-    print(len(data))
-
+    
     return data
 
 if __name__ == "__main__":
-    clean_csv("websites_updated.csv")
+    clean_csv()
