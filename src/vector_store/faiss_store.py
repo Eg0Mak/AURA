@@ -28,4 +28,5 @@ def load_faiss_index():
 
 def search_faiss(index, query_vector, top_k=5):
     D, I = index.search(query_vector, top_k)
+    # tf-idf 
     return I[0], D[0]

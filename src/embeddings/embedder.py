@@ -23,6 +23,7 @@ def get_embeddings(csv_name="chunks_semantic.csv"):
     embeddings = embed_model.get_batch_embeddings(texts)
     embeddings = np.array(embeddings, dtype=np.float32)
 
+    embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True) # нормализация
     np.save(cache_file, embeddings)
     print(f"Эмбеддинги сохранены: {embeddings.shape}")
 
