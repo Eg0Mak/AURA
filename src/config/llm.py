@@ -1,3 +1,4 @@
+# src/config/llm.py
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
@@ -12,7 +13,7 @@ class QueryExpander:
     def __init__(
         self,
         model_name: str = "Qwen/Qwen2.5-1.5B-Instruct",
-        device: str = "mps",
+        device: str = "cpu",
         max_new_tokens: int = 150,
     ):
         print(f"Загружается LLM для генерации ({model_name}) ...")

@@ -1,107 +1,65 @@
-# main.py
+# src/main.py
 from src.data_preprocessing.clean_data import clean_csv
 from src.chunking.splitter import split_documents_with_semantics
+from src.chunking.recursive_splitter import split_documents_with_recursive
 from src.embeddings.embedder import get_embeddings
 # from src.vector_store.faiss_store import build_faiss_index, load_faiss_index, search_faiss
 from src.vector_store.hybrid_search import build_or_load_tfidf, search_hybrid, build_faiss_index
 from src.config.embbeding_model import embed_model
+from src.data_preprocessing.marked_llm import process_queries
 from src.vector_store.rerank import rerank
 from dotenv import load_dotenv
 import numpy as np
 import pandas as pd
 import os
 
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+
 load_dotenv()
-TOP_K = int(os.getenv("TOP_K", 20))
+# TOP_K = int(os.getenv("TOP_K", 20))
 ALPHA = float(os.getenv("HYBRID_ALPHA"))
 
+TOP_K_RERANK = int(os.getenv("TOP_K_RERANK", 5)) # топ после гибридного поиска, который идёт на rerank
+FAISS_TOP_N = int(os.getenv("FAISS_TOP_N", 10))
+TFIDF_TOP_N = int(os.getenv("TFIDF_TOP_N", 10))
+
 # 1. Очистка CSV
-# df = clean_csv("websites_updated.csv")
+df = clean_csv("websites_updated.csv")
 
 # 2.Семантическое разбиение
-# PROCESSED_DATA_DIR = os.getenv("PROCESSED_DATA_DIR", "data/processed")
-# CHUNKS_DIR = os.getenv("CHUNKS_DIR", "data/chunks")
-# input_csv = os.path.join(PROCESSED_DATA_DIR, "clean_data.csv")
-# output_csv = os.path.join(CHUNKS_DIR, "chunks_semantic.csv")
+PROCESSED_DATA_DIR = os.getenv("PROCESSED_DATA_DIR", "data/processed")
+CHUNKS_DIR = os.getenv("CHUNKS_DIR", "data/chunks")
+input_csv = os.path.join(PROCESSED_DATA_DIR, "clean_data.csv")
+output_csv = os.path.join(CHUNKS_DIR, "chunks_semantic.csv")
 # split_documents_with_semantics(input_csv, output_csv)
-
-# # === 3. Эмбеддинги ===
-# embeddings, chunks = get_embeddings()  # читает output_csv с чанками
-
-# # === 4. Индексация FAISS ===
-# # index = build_faiss_index(embeddings)
-# index = load_faiss_index()
-
-# # === 5. Пример поиска ===
-# query = "Здравствуйте, когда смогу пользоваться кредитной картой?"
-
-# # Получаем эмбеддинг для запроса
-# query_vec = np.array([embed_model.get_text_embedding(query)], dtype=np.float32)
-
-# # Поиск в FAISS
-# I, D = search_faiss(index, query_vec, top_k=TOP_K)
-# I = np.atleast_1d(I).ravel()  # приводим индексы к одномерному массиву
-
-# # Извлекаем найденные чанки
-# retrieved = [chunks[i] for i in I]
-
-# # Reranking
-# reranked = rerank(query, retrieved, top_n=5)
-
-# # Вывод результата
-# print("\nТоп после RERANKING:\n")
-# for c in reranked:
-#     print(f"— {c['url']}\n{c['chunk_text'][:200]}...\n")
-
-
-# Загружаем эмбеддинги и чанки 
-# embeddings, chunks = get_embeddings()  
-# index = build_faiss_index(embeddings)
-
-# # Загружаем CSV с вопросами 
-# RAW_DATA_DIR = os.getenv("RAW_DATA_DIR", "data/raw")
-# input_csv_queries = os.path.join(RAW_DATA_DIR, "questions_clean.csv")
-# queries_df = pd.read_csv(input_csv_queries)  # q_id, query
-
-# results = []
-
-# for _, row in queries_df.iterrows():
-#     q_id = row["q_id"]
-#     query = str(row["query"]).strip()
-    
-#     # Получаем эмбеддинг запроса
-#     query_vec = np.array([embed_model.get_text_embedding(query)], dtype=np.float32)
-    
-#     # FAISS-поиск
-#     I, D = search_faiss(index, query_vec, top_k=TOP_K)
-#     I = np.atleast_1d(I).ravel()
-    
-#     # Извлекаем найденные id веб-страниц (или используем chunk['web_id'])
-#     web_list = [chunks[i]["web_id"] for i in I]
-    
-#     # Ререйкинг
-#     retrieved = [chunks[i] for i in I]
-#     reranked = rerank(query, retrieved, top_n=TOP_K)
-#     web_list_reranked = [c["web_id"] for c in reranked]
-    
-#     results.append({
-#         "q_id": q_id,
-#         "web_list": str(web_list_reranked)  # сохраняем как строку
-#     })
-
-# # Сохраняем результат
-# output_csv = "queries_rag_results.csv"
-# pd.DataFrame(results).to_csv(output_csv, index=False)
-# print(f"Разметка сохранена в: {output_csv}")
+split_documents_with_recursive(input_csv, output_csv) # Пробую другой сплиттер
 
 # 3. Эмбеддинги
 embeddings, chunks = get_embeddings()  
 index = build_faiss_index(embeddings)
 
+# Перефрзаирование запросов
+# process_queries(
+#     input_filename="questions_clean.csv",
+#     output_filename="questions_expanded.csv",
+#     mode="paraphrase",
+#     n_variants=1
+# )
+
 # Загружаем CSV с вопросами
 RAW_DATA_DIR = os.getenv("RAW_DATA_DIR", "data/raw")
 input_csv_queries = os.path.join(RAW_DATA_DIR, "questions_clean.csv")
 queries_df = pd.read_csv(input_csv_queries)  # q_id, query
+
+# PROCESSED_DATA_DIR = os.getenv("PROCESSED_DATA_DIR", "data/processed")
+# input_csv_queries_expand = os.path.join("PROCESSED_DATA_DIR", "questions_expanded.csv")
+# queries_df = pd.read_csv(input_csv_queries_expand)  # q_id, query
 
 results = []
 
@@ -113,15 +71,18 @@ for _, row in queries_df.iterrows():
     query = str(row["query"]).strip()
     query_vec = np.array([embed_model.get_text_embedding(query)], dtype=np.float32)
 
-    # Передаем готовые TF-IDF объекты
+    # Гибридный поиск с топ-N
     hybrid_chunks, scores = search_hybrid(
         index, query_vec, query, chunks,
-        top_k=TOP_K, alpha=ALPHA,
+        top_k=TOP_K_RERANK, alpha=ALPHA,
         tfidf_vectorizer=vectorizer,
-        tfidf_matrix=tfidf_matrix
+        tfidf_matrix=tfidf_matrix,
+        faiss_top_n=FAISS_TOP_N,
+        tfidf_top_n=TFIDF_TOP_N
     )
 
-    reranked_chunks = rerank(query, hybrid_chunks, top_n=5)
+    # rerank топ-5
+    reranked_chunks = rerank(query, hybrid_chunks, top_n=TOP_K_RERANK)
     web_list_reranked = [chunk.get("web_id", "") or chunk.get("url", "") for chunk in reranked_chunks]
 
     results.append({
