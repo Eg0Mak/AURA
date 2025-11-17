@@ -4,3 +4,9 @@
 # Python cache
 __pycache__/
 *.py[cod]
+
+# Ignore data artifacts
+data/chunks/*.npy
+data/chunks/*.index
+data/chunks/embeddings.npy
+data/chunks/faiss.index
