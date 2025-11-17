@@ -2,11 +2,15 @@
 from src.data_preprocessing.clean_data import clean_csv
 from src.chunking.splitter import split_documents_with_semantics
 from src.chunking.recursive_splitter import split_documents_with_recursive
+from src.chunking.simple_splitter import split_documents_fixed
 from src.embeddings.embedder import get_embeddings
 # from src.vector_store.faiss_store import build_faiss_index, load_faiss_index, search_faiss
 from src.vector_store.hybrid_search import build_or_load_tfidf, search_hybrid, build_faiss_index
 from src.config.embbeding_model import embed_model
 from src.data_preprocessing.marked_llm import process_queries
+from src.graph.build_graph import GraphBuilder # graph
+from src.graph.graph_store import graph_store # grapgh
+from src.graph.graph_expander import graph_expand # grapgh
 from src.vector_store.rerank import rerank
 from dotenv import load_dotenv
 import numpy as np
@@ -38,11 +42,18 @@ CHUNKS_DIR = os.getenv("CHUNKS_DIR", "data/chunks")
 input_csv = os.path.join(PROCESSED_DATA_DIR, "clean_data.csv")
 output_csv = os.path.join(CHUNKS_DIR, "chunks_semantic.csv")
 # split_documents_with_semantics(input_csv, output_csv)
-split_documents_with_recursive(input_csv, output_csv) # Пробую другой сплиттер
+# split_documents_with_recursive(input_csv, output_csv) # Пробую другой сплиттер
+split_documents_fixed(input_csv, output_csv)
 
-# 3. Эмбеддинги
+# 3.1 Эмбеддинги
 embeddings, chunks = get_embeddings()  
 index = build_faiss_index(embeddings)
+
+# 3.2 Граф связи
+# builder = GraphBuilder(chunks)
+# builder.build()
+
+graph_index = graph_store.load()
 
 # Перефрзаирование запросов
 # process_queries(
@@ -81,7 +92,20 @@ for _, row in queries_df.iterrows():
         tfidf_top_n=TFIDF_TOP_N
     )
 
+    # # NEW: graph expansion
+    # expanded_chunks = graph_expand(
+    #     initial_chunks=hybrid_chunks,
+    #     graph_index=graph_index,
+    #     chunks=chunks,                     
+    #     max_depth=1,
+    #     max_neighbors_per_node=3,          
+    #     max_neighbors_total=6,             # общее ограничение по добавлению
+    #     min_similarity=0.25,               # порог similarity (0..1)
+    #     min_nli=0.0                        # если хочешь — можно >0.4
+    # )
+
     # rerank топ-5
+    # reranked_chunks = rerank(query, hybrid_chunks, top_n=TOP_K_RERANK)
     reranked_chunks = rerank(query, hybrid_chunks, top_n=TOP_K_RERANK)
     web_list_reranked = [chunk.get("web_id", "") or chunk.get("url", "") for chunk in reranked_chunks]
 

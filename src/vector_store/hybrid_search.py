@@ -1,107 +1,3 @@
-# # src/vector_store/hybrid_search.py
-# import os
-# import faiss
-# import numpy as np
-# import pickle
-# from dotenv import load_dotenv
-# from sklearn.feature_extraction.text import TfidfVectorizer
-# from sklearn.metrics.pairwise import cosine_similarity
-
-# load_dotenv()
-
-# CHUNKS_DIR = os.getenv("CHUNKS_DIR", "data/chunks")
-# INDEX_FILE = os.path.join(CHUNKS_DIR, "faiss.index")
-# TFIDF_CACHE_DIR = os.path.join(CHUNKS_DIR, "tfidf_cache")
-# os.makedirs(TFIDF_CACHE_DIR, exist_ok=True)
-
-# TFIDF_VECTORIZER_FILE = os.path.join(TFIDF_CACHE_DIR, "vectorizer.pkl")
-# TFIDF_MATRIX_FILE = os.path.join(TFIDF_CACHE_DIR, "tfidf_matrix.npz")
-
-
-# # ========== FAISS ==========
-# def build_faiss_index(embeddings):
-#     """Строим или загружаем FAISS-индекс"""
-#     if os.path.exists(INDEX_FILE):
-#         print("Используем кэшированный FAISS-индекс...")
-#         return faiss.read_index(INDEX_FILE)
-
-#     print("Создаём новый FAISS-индекс...")
-#     d = embeddings.shape[1]
-#     index = faiss.IndexFlatIP(d)
-#     faiss.normalize_L2(embeddings)  # Важно!
-#     index.add(embeddings)
-#     faiss.write_index(index, INDEX_FILE)
-#     print(f"Индекс FAISS сохранён: {INDEX_FILE}")
-#     return index
-
-
-# # ========== TF-IDF ==========
-# def build_or_load_tfidf(chunks, max_features=50000):
-#     """Создаёт или загружает TF-IDF матрицу и векторизатор"""
-#     if os.path.exists(TFIDF_VECTORIZER_FILE) and os.path.exists(TFIDF_MATRIX_FILE):
-#         print("Используем кэшированный TF-IDF...")
-#         with open(TFIDF_VECTORIZER_FILE, "rb") as f:
-#             vectorizer = pickle.load(f)
-#         tfidf_matrix = np.load(TFIDF_MATRIX_FILE, allow_pickle=True)["arr_0"]
-#         return vectorizer, tfidf_matrix
-
-#     print("Создаём новый TF-IDF-векторизатор...")
-#     texts = [chunk["chunk_text"] for chunk in chunks]
-#     vectorizer = TfidfVectorizer(max_features=max_features)
-#     # tfidf_matrix = vectorizer.fit_transform(texts).toarray()
-#     tfidf_matrix = vectorizer.fit_transform(texts)
-
-
-#     # Сохраняем кэш
-#     with open(TFIDF_VECTORIZER_FILE, "wb") as f:
-#         pickle.dump(vectorizer, f)
-#     np.savez_compressed(TFIDF_MATRIX_FILE, tfidf_matrix)
-
-#     print(f"TF-IDF сохранён в {TFIDF_CACHE_DIR}")
-#     return vectorizer, tfidf_matrix
-
-
-
-# def search_hybrid(index, query_vector, query_text, chunks, top_k=5, alpha=0.6,
-#                   tfidf_vectorizer=None, tfidf_matrix=None, faiss_top_n=20, tfidf_top_n=20):
-#     """
-#     Гибридный поиск: объединяем топ-N FAISS + топ-N TF-IDF, затем сортируем по комбинированной метрике.
-#     """
-#     if tfidf_vectorizer is None or tfidf_matrix is None:
-#         tfidf_vectorizer, tfidf_matrix = build_or_load_tfidf(chunks)
-
-#     # FAISS поиск
-#     faiss.normalize_L2(query_vector)
-#     D, I = index.search(query_vector, faiss_top_n)
-#     faiss_scores = D[0]
-#     faiss_indices = I[0]
-
-#     # TF-IDF поиск для всех чанков
-#     query_vec_tfidf = tfidf_vectorizer.transform([query_text]).toarray()
-#     tfidf_scores_all = cosine_similarity(query_vec_tfidf, tfidf_matrix)[0]
-
-#     # Получаем топ-N TF-IDF
-#     tfidf_top_indices = np.argsort(tfidf_scores_all)[::-1][:tfidf_top_n]
-#     tfidf_top_scores = tfidf_scores_all[tfidf_top_indices]
-
-#     # Объединяем FAISS + TF-IDF индексы
-#     combined_indices = np.unique(np.concatenate([faiss_indices, tfidf_top_indices]))
-#     faiss_subset = np.array([faiss_scores[np.where(faiss_indices==i)[0][0]] 
-#                              if i in faiss_indices else 0 for i in combined_indices])
-#     tfidf_subset = np.array([tfidf_scores_all[i] for i in combined_indices])
-
-#     # Нормализация
-#     faiss_norm = (faiss_subset - faiss_subset.min()) / (faiss_subset.max()-faiss_subset.min()+1e-9)
-#     tfidf_norm = (tfidf_subset - tfidf_subset.min()) / (tfidf_subset.max()-tfidf_subset.min()+1e-9)
-
-#     combined_scores = alpha * faiss_norm + (1-alpha) * tfidf_norm
-#     top_indices = np.argsort(combined_scores)[::-1][:top_k]
-#     final_chunks = [chunks[i] for i in combined_indices[top_indices]]
-#     final_scores = combined_scores[top_indices]
-
-#     return final_chunks, final_scores
-
-
 # src/vector_store/hybrid_search.py
 import os
 import faiss
@@ -124,7 +20,7 @@ TFIDF_MATRIX_FILE = os.path.join(TFIDF_CACHE_DIR, "tfidf_matrix.npz")  # для 
 TFIDF_NORMS_FILE = os.path.join(TFIDF_CACHE_DIR, "tfidf_norms.npy")    # l2 нормы строк
 
 
-# ========== FAISS ==========
+# FAISS
 def build_faiss_index(embeddings):
     """Строим или загружаем FAISS-индекс"""
     if os.path.exists(INDEX_FILE):
@@ -142,7 +38,7 @@ def build_faiss_index(embeddings):
     return index
 
 
-# ========== TF-IDF ==========
+# TF-IDF
 def build_or_load_tfidf(chunks, max_features=50000):
     """
     Создаёт или загружает TF-IDF матрицу (sparse) и векторизатор.
@@ -202,7 +98,7 @@ def _compute_and_save_tfidf_norms(tfidf_matrix):
     return norms
 
 
-# ========== HYBRID SEARCH ==========
+# HYBRID SEARCH
 def search_hybrid(index, query_vector, query_text, chunks, top_k=5, alpha=0.6,
                   tfidf_vectorizer=None, tfidf_matrix=None, faiss_top_n=20, tfidf_top_n=20):
     """
@@ -215,14 +111,14 @@ def search_hybrid(index, query_vector, query_text, chunks, top_k=5, alpha=0.6,
     if tfidf_vectorizer is None or tfidf_matrix is None:
         tfidf_vectorizer, tfidf_matrix = build_or_load_tfidf(chunks)
 
-    # --- FAISS ---
+    # FAISS
     faiss.normalize_L2(query_vector)
     # index.search принимает ndarray (nq x d) и возвращает (D, I)
     D, I = index.search(query_vector, faiss_top_n)
     faiss_scores = D[0]
     faiss_indices = I[0]
 
-    # --- TF-IDF scoring (fast, using sparse) ---
+    # TF-IDF scoring (fast, using sparse)
     # Получаем вектор запроса в tf-idf-пространстве — это sparse (csr)
     query_vec_tfidf = tfidf_vectorizer.transform([query_text])  # shape (1, n_features), sparse
 
@@ -237,7 +133,7 @@ def search_hybrid(index, query_vector, query_text, chunks, top_k=5, alpha=0.6,
             tfidf_norms = _compute_and_save_tfidf_norms(tfidf_matrix)
         setattr(tfidf_vectorizer, "_tfidf_norms", tfidf_norms)
 
-    # Если tfidf_matrix — sparse, делаем умножение разрежённой матрицы на разрежённый вектор:
+    # Если tfidf_matrix - sparse, делаем умножение разрежённой матрицы на разрежённый вектор:
     # result shape (n_docs, 1)
     if issparse(tfidf_matrix):
         # dot product (fast, memory-friendly)
@@ -256,10 +152,10 @@ def search_hybrid(index, query_vector, query_text, chunks, top_k=5, alpha=0.6,
         q_norm = np.linalg.norm(query_dense) + 1e-12
         tfidf_scores_all = dot_prod / (tfidf_norms * q_norm)
 
-    # --- топ-N по TF-IDF ---
+    # топ-N по TF-IDF
     tfidf_top_indices = np.argsort(tfidf_scores_all)[::-1][:tfidf_top_n]
 
-    # --- Объединяем FAISS + TF-IDF индексы (уникальные) ---
+    # Объединяем FAISS + TF-IDF индексы (уникальные)
     combined_indices = np.unique(np.concatenate([faiss_indices, tfidf_top_indices]))
 
     # Собираем соответствующие значения FAISS и TF-IDF для combined_indices
@@ -270,8 +166,7 @@ def search_hybrid(index, query_vector, query_text, chunks, top_k=5, alpha=0.6,
     ], dtype=float)
     tfidf_subset = np.array([tfidf_scores_all[i] for i in combined_indices], dtype=float)
 
-    # --- Нормализация (min-max) ---
-    # Будем избегать деления на 0
+    # Нормализация (min-max)
     def _minmax(arr):
         mn = arr.min() if arr.size else 0.0
         mx = arr.max() if arr.size else 0.0

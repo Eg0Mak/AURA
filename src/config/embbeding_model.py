@@ -38,6 +38,8 @@ class EmbedModelWrapper(BaseEmbedding):
 embed_model = EmbedModelWrapper(EMBEDDING_MODEL_NAME)
 
 
+
+## embbeding_model for Sbert
 # from transformers import AutoTokenizer, AutoModel
 # import torch
 # import numpy as np

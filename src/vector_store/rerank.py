@@ -3,6 +3,7 @@ from sentence_transformers import CrossEncoder
 from functools import lru_cache
 import hashlib
 import os
+import torch 
 
 # Загружаем модель для reranking
 # reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
@@ -38,7 +39,6 @@ def _cached_predict(query: str, chunk_text: str) -> float:
     return float(reranker.predict([(query, chunk_text)])[0])
 
 
-import torch  # убедись, что импорт есть в начале файла
 
 def rerank(query: str, retrieved_chunks: list, top_n: int = 5, batch_size: int = 64):
     """
