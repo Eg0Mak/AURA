@@ -10,3 +10,7 @@ data/chunks/*.npy
 data/chunks/*.index
 data/chunks/embeddings.npy
 data/chunks/faiss.index
+data/chunks/*.json
+data/chunks/tfidf_cashe/*.npz
+data/chunks/tfidf_cashe/*.npy
+data/chunks/tfidf_cashe/*.pkl
