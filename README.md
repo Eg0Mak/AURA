@@ -1,12 +1,23 @@
+# AURA - Augmented Universal Retrieval Assistant
+## Powerful RAG system for finding relevant information
+
+
+
+
+
+
+
+
+
 # Структура проекта
 
 ```text
 rag_project/
 │
-├── data/                       # исходные документы
-│   ├── raw/                    # сырые файлы (txt, pdf, docx)
-│   ├── processed/              # очищенные тексты
-│   └── chunks/                 # чанки  
+├── data/                       
+│   ├── raw/                    
+│   ├── processed/              
+│   └── chunks/                 
 │
 ├── src/
 |   ├── config/
@@ -15,26 +26,34 @@ rag_project/
 |   |
 |   |
 │   ├── data_preprocessing/
-│   │   └── clean_data.py       # очистка и нормализация текстов
-│   │
+│   │   ├── clean_data.py  
+│   │   └── marked_llm.py  
+|   |
 │   ├── chunking/
-│   │   └── splitter.py         # разбиение текста на чанки
-│   │
+│   │   ├── splitter.py                 # semantic splitter
+|   |   ├── recursive_splitter.py       # recursive splitter  
+│   │   └── simple_splitter.py          # custom splitter
+|   |   
 │   ├── embeddings/
-│   │   └── embedder.py         # вычисление эмбеддингов
+│   │   └── embedder.py    
 │   │
 │   ├── vector_store/
-│   │   └── faiss_store.py      # создание и поиск по FAISS
-│   │
-│   ├── retrieval/
-│   │   └── retriever.py        # объединяет эмбеддер и векторное хранилище
+|   |   ├── faiss_store.py              # base version of FAISS
+|   |   ├── hybrid_search.py            # FAISS + Tf-Idf
+│   │   └── rerank.py                   # Reranker
+|   |
+|   ├── graph/
+|   |   ├── build_graph.py
+|   |   ├── graph_expander.py
+│   │   └── graph_store.py
+|   | 
 │   │
 │   ├── evaluation/
-│   │   └── hit_at_k.py         # метрика Hit@K
+│   │   └── hit_at_k.py    
 │   │
-│   └── main.py                 # pipeline — объединяет все этапы
+│   └── main.py            
 │
-├── .env                        # настройки (пути, ключи, параметры)
+├── .env                   
 ├── .gitignore
 ├── requirements.txt
 └── README.md
