@@ -1,6 +1,6 @@
-# src/config/llm.py
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import gc
 
 
 class QueryExpander:
@@ -11,36 +11,78 @@ class QueryExpander:
     """
 
     def __init__(
-        self,
-        model_name: str = "Qwen/Qwen2.5-1.5B-Instruct",
-        device: str = "cpu",
-        max_new_tokens: int = 150,
+            self,
+            model_name: str = "l3lab/L1-Qwen3-8B-Max",
+            device: str = "cuda",
+            max_new_tokens: int = 75,
+            load_in_8bit: bool = True,
+            load_in_4bit: bool = False
     ):
-        print(f"Загружается LLM для генерации ({model_name}) ...")
+        print(f"Загружается модель {model_name}...")
+
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        self.model.to(device)
+
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.float16,
+            device_map="auto",
+            load_in_8bit=load_in_8bit,
+            load_in_4bit=load_in_4bit
+        )
+
         self.device = device
         self.max_new_tokens = max_new_tokens
 
+    # ---------------------------------------------------------------------
+
     def _generate(self, prompt: str) -> str:
-        """Вспомогательная функция генерации текста"""
-        messages = [{"role": "user", "content": prompt}]
+        """
+        Генерация без утечки <think>.
+        """
+
+        messages = [
+            # IMPORTANT: chain-of-thought is forbidden
+            {
+                "role": "system",
+                "content": (
+                    "Respond only with the final result. "
+                    "Do not reveal your reasoning process, chain-of-thought, reasoning tokens, "
+                    "and do not use <think> tags. "
+                    "Answer briefly and without additional comments."
+                )
+            },
+            {"role": "user", "content": prompt}
+        ]
+
         inputs = self.tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
             return_tensors="pt",
             return_dict=True,
+            padding=True
         ).to(self.device)
 
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs,
                 max_new_tokens=self.max_new_tokens,
-                do_sample=True,
-                temperature=0.7,
-                top_p=0.9,
+                do_sample=False,
+                temperature=0.0,
+                top_p=1.0,
+                repetition_penalty=1.05
             )
+
+        text = self.tokenizer.decode(
+            outputs[0][inputs["input_ids"].shape[-1]:],
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True
+        ).strip().replace("<think>", "").replace("</think>", "")
+
+        # чистим GPU
+        torch.cuda.empty_cache()
+        gc.collect()
+
+        return text
 
         text = self.tokenizer.decode(
             outputs[0][inputs["input_ids"].shape[-1]:],
@@ -50,117 +92,137 @@ class QueryExpander:
 
     def _build_expand_prompt(self, query: str, n_variants: int) -> str:
         return f"""
-    Ты — интеллектуальный ассистент, помогающий системе поиска находить документы в базе знаний финтех компании, связанные с запросом пользователя.  
-    Твоя задача — **расширить исходный запрос**, добавив к нему возможные уточнения, детали, связанные аспекты и реальные сценарии использования.  
-    ### ЖЕСТКИЕ ПРАВИЛА:
-    1.  ❗**НЕЛЬЗЯ менять цель исходного запроса.** Все ключевые действия и объекты из запроса должны быть сохранены дословно или их прямыми синонимами, если это необходимо для естественности, но предпочтение отдается дословному сохранению.
-    2.  ❗**НЕЛЬЗЯ просто перефразировать оригинал.** Каждый новый вариант должен добавлять новую, конкретную информацию.
-    3.  ❗Не перефразируй оригинальный запрос — добавь контекст.  
-    4.  ❗В каждом варианте должно появляться что-то новое: дополнительное действие, условие, ограничение, пример или возможный мотив пользователя.
-    5.  ❗Цель запроса не должна меняться.
-    6.  ❗Не теряй важную информацию.
+    You must output ONLY the final expanded variants.  
+    The output MUST contain nothing except the final expanded sentences.  
 
-    Каждый вариант должен быть естественным, подробным и формулироваться на русском языке.
+    ABSOLUTELY FORBIDDEN under any circumstances:  
+    - any reasoning  
+    - any explanations  
+    - any analysis  
+    - any chain-of-thought  
+    - any assumptions  
+    - any comments  
+    - any meta-text  
+    - any mention of what you are doing  
+    - any reference to rules or instructions  
+    - any introductions, transitions, or filler phrases  
+    - any statements about the original query  
+    - any statements about generating variants  
+    - any summaries, clarifications, or descriptions  
+    - ANYTHING except the final expanded variants in Russian  
+
+    If your answer contains even one extra word beyond the final sentences, the output is INVALID.
+
+    You are an intelligent assistant expanding the original query by adding relevant details, clarifications, related aspects, and real usage scenarios — WITHOUT changing the query’s purpose and WITHOUT producing any reasoning text.
+
+    ### STRICT RULES:
+    1. ❗️You MUST NOT change the purpose of the original query.  
+    2. ❗️You MUST NOT paraphrase — you must ADD context.  
+    3. ❗️Every variant must introduce NEW, concrete information.  
+    4. ❗️Each variant must add something meaningful: action, condition, limitation, example, or user motivation.  
+    5. ❗️Do NOT remove important information.  
+    6. ❗️Do NOT output thoughts, explanations, or any text except final sentences.  
+    7. ❗️Your entire output must consist ONLY of the final Russian expanded variants, one per line.
+
+    Each variant must be natural, detailed, and written in Russian.
 
     ---
 
     ### Примеры
 
-    **Пример 1**  
+    Пример 1  
     Исходный запрос: "Как оплатить кредит?"  
     Расширенные версии:  
     - "Как оплатить кредит через мобильное приложение банка, если нет доступа к интернет-банку?"  
     - "Какие способы доступны для оплаты кредита в выходные или праздничные дни?"  
     - "Можно ли оплатить кредит досрочно с другой карты, не своего банка?"  
 
-    **Пример 2**  
+    Пример 2  
     Исходный запрос: "Проблемы с входом в личный кабинет"  
     Расширенные версии:  
     - "Почему не получается войти в личный кабинет после смены пароля?"  
-    - "Что делать, если при входе в личный кабинет появляется ошибка 'неверный код подтверждения'?"  
-    - "Как восстановить доступ к личному кабинету, если утерян номер телефона для входа?"  
+    - "Что делать, если при входе появляется ошибка 'неверный код подтверждения'?"  
+    - "Как восстановить доступ, если утерян номер телефона, привязанный к входу?"  
 
-    **Пример 3**  
+    Пример 3  
     Исходный запрос: "Как получить карту?"  
     Расширенные версии:  
     - "Как заказать банковскую карту онлайн и получить её на дом?"  
     - "Какие документы нужны, чтобы получить карту в офисе банка?"  
-    - "Можно ли получить карту на несовершеннолетнего ребёнка?"  
+    - "Можно ли оформить карту для несовершеннолетнего ребёнка?"  
 
     ---
 
-    Теперь обработай следующий запрос:
+    Now process the following query:
 
-    **Исходный запрос:** {query}
+    Original query: {query}
 
-    Сгенерируй {n_variants} расширенных версий.  
-    Каждый вариант — новая строка без нумерации.
+    Generate {n_variants} expanded variants.  
+    Each variant must appear on a new line without numbering.  
+    Do NOT output anything except the final expanded sentences.
     """
-
 
     def _build_rephrase_prompt(self, query: str, n_variants: int) -> str:
         return f"""
-    Ты — интеллектуальный ассистент, который помогает системе поиска находить релевантные документы в базе знаний финтех компании.  
-    Твоя задача — **переформулировать исходный запрос**, сохранив его исходный смысл, но изменяя стиль, лексику, цель запроса, структуру и способ выражения мысли.  
+        You must output ONLY the final rephrased variants.  
+        Output MUST consist exclusively of the {n_variants} final lines.  
+        Forbidden: any introductions, explanations, reasoning, internal thoughts, comments, analysis, meta-text, or references to the task.  
+        If you attempt to explain anything, the output is considered invalid.  
+        Your response must contain NOTHING except the rephrased variants.
 
-    Каждый вариант должен звучать естественно, как если бы его задал другой человек.  
-    Не добавляй новые факты или уточнения — только меняй форму. ❗ Не теряй важную информацию.
+        You are an assistant rephrasing the user's query while preserving its meaning and changing its wording, tone, and structure.  
+        Do not add new information. Do not omit important information.  
+        You MUST preserve all key meaning components and MUST NOT change or distort the original intent.  
+        All key terms and core semantic elements MUST remain present in each variant.
 
-    ---
+        ---
 
-    ### Примеры (few-shot)
+        ### Примеры (few-shot)
 
-    **Пример 1**  
-    Исходный запрос: "Как оплатить кредит?"  
-    Перефразированные версии:  
-    - "Какие способы оплаты кредита доступны?"  
-    - "Как можно внести платеж по кредиту?"  
-    - "Каким образом оплатить кредитный долг?"  
+        Пример 1  
+        Исходный запрос: "Как оплатить кредит?"  
+        Перефразированные версии:  
+        - "Какие способы оплаты кредита доступны?"  
+        - "Как можно внести платеж по кредиту?"  
+        - "Каким образом оплатить кредитный долг?"  
 
-    **Пример 2**  
-    Исходный запрос: "Проблемы с входом в личный кабинет"  
-    Перефразированные версии:  
-    - "Не получается войти в личный кабинет"  
-    - "Ошибка при попытке входа в личный кабинет"  
-    - "Почему не удается авторизоваться в личном кабинете?"  
+        Пример 2  
+        Исходный запрос: "Проблемы с входом в личный кабинет"  
+        Перефразированные версии:  
+        - "Не получается войти в личный кабинет"  
+        - "Ошибка при попытке входа в личный кабинет"  
+        - "Почему не удается авторизоваться в личном кабинете?"  
 
-    **Пример 3**  
-    Исходный запрос: "Как получить карту?"  
-    Перефразированные версии:  
-    - "Что нужно, чтобы оформить карту?"  
-    - "Как оформить и получить банковскую карту?"  
-    - "Каким образом можно заказать карту?"  
+        Пример 3  
+        Исходный запрос: "Как получить карту?"  
+        Перефразированные версии:  
+        - "Что нужно, чтобы оформить карту?"  
+        - "Как оформить и получить банковскую карту?"  
+        - "Каким образом можно заказать карту?"  
 
-    ---
+        ---
 
-    Теперь обработай следующий запрос:
+        Original query: {query}
 
-    **Исходный запрос:** {query}
-
-    Сгенерируй {n_variants} перефразированных версий.  
-    Каждый вариант — новая строка без нумерации.
-    """
-
+        Generate {n_variants} variants.  
+        Each variant must be on its own line.  
+        Output NOTHING except these final lines.
+        """
 
     def expand_query(self, query: str, n_variants: int = 3) -> list[str]:
-        """Расширяет запрос, добавляя уточняющие контексты"""
         prompt = self._build_expand_prompt(query, n_variants)
         text = self._generate(prompt)
         variants = [t.strip() for t in text.split("\n") if t.strip()]
         return variants[:n_variants]
 
     def paraphrase_query(self, query: str, n_variants: int = 3) -> list[str]:
-        """Перефразирует запрос разными способами"""
         prompt = self._build_rephrase_prompt(query, n_variants)
         text = self._generate(prompt)
         variants = [t.strip() for t in text.split("\n") if t.strip()]
         return variants[:n_variants]
 
+
     def generate(self, query: str, mode: str = "expand", n_variants: int = 3) -> list[str]:
-        """
-        Универсальный метод — выбирает стратегию по флагу:
-        mode = 'expand' | 'paraphrase'
-        """
         if mode == "expand":
             return self.expand_query(query, n_variants)
         elif mode == "paraphrase":

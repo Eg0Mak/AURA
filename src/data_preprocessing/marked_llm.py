@@ -27,7 +27,7 @@ def process_queries(
     if not os.path.exists(input_path):
         raise FileNotFoundError(f"Файл не найден: {input_path}")
 
-    df = pd.read_csv(input_path)
+    df = pd.read_csv(input_path, nrows=6977)
     if "q_id" not in df.columns or "query" not in df.columns:
         raise ValueError("CSV должен содержать колонки: q_id, query")
 
@@ -40,16 +40,26 @@ def process_queries(
         q_id = row["q_id"]
         query = str(row["query"]).strip()
 
-        try:
-            variants = expander.generate(query, mode=mode, n_variants=n_variants)
-        except Exception as e:
-            print(f"Ошибка при обработке запроса {q_id}: {e}")
-            variants = []
+        if len(query) > 1000:
+            print(query)
+            print('>50')
 
-        results.append({
-            "q_id": q_id,
-            "query": variants[0]
-        })
+            results.append({
+                "q_id": q_id,
+                "query": query
+            })
+        else:
+
+            try:
+                variants = expander.generate(query, mode=mode, n_variants=n_variants)
+            except Exception as e:
+                print(f"Ошибка при обработке запроса {q_id}: {e}")
+                variants = []
+
+            results.append({
+                "q_id": q_id,
+                "query": variants[0]
+            })
 
     out_df = pd.DataFrame(results)
     out_df.to_csv(output_path, index=False)
