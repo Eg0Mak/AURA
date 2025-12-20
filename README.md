@@ -14,47 +14,40 @@
 ```text
 rag_project/
 │
-├── data/                       
-│   ├── raw/                    
-│   ├── processed/              
-│   └── chunks/                 
+├── data/                       # Данные (без изменений)
+│   ├── raw/
+│   ├── processed/
+│   └── chunks/
 │
 ├── src/
-|   ├── config/
-│   │   ├── llm.py
-│   │   └── embedding_model.py  
-|   |
-|   |
-│   ├── data_preprocessing/
-│   │   ├── clean_data.py  
-│   │   └── marked_llm.py  
-|   |
-│   ├── chunking/
-│   │   ├── splitter.py                 # semantic splitter
-|   |   ├── recursive_splitter.py       # recursive splitter  
-│   │   └── simple_splitter.py          # custom splitter
-|   |   
-│   ├── embeddings/
-│   │   └── embedder.py    
+│   ├── config/                 # Конфигурации (LLM, DB connection)
 │   │
-│   ├── vector_store/
-|   |   ├── faiss_store.py              # base version of FAISS
-|   |   ├── hybrid_search.py            # FAISS + Tf-Idf
-│   │   └── rerank.py                   # Reranker
-|   |
-|   ├── graph/
-|   |   ├── build_graph.py
-|   |   ├── graph_expander.py
-│   │   └── graph_store.py
-|   | 
+│   ├── core/                   # ВАШ ТЕКУЩИЙ КОД (переименовано для порядка)
+│   │   ├── preprocessing/      # (бывший data_preprocessing)
+│   │   ├── chunking/
+│   │   ├── embeddings/
+│   │   ├── vector_store/
+│   │   └── graph/
 │   │
-│   ├── evaluation/
-│   │   └── hit_at_k.py    
+│   ├── pipeline/               # СВЯЗУЮЩАЯ ЛОГИКА
+│   │   └── rag_pipeline.py     # Главный класс, объединяющий поиск + генерацию
 │   │
-│   └── main.py            
+│   ├── api/                    # BACKEND (REST API)
+│   │   ├── main.py             # Точка входа (FastAPI app)
+│   │   ├── routes.py           # Эндпоинты (/chat, /indexing)
+│   │   ├── schemas.py          # Pydantic модели (Request/Response)
+│   │   └── dependencies.py     # Инициализация моделей (Singleton)
+│   │
+│   └── interface/              # FRONTEND / BOT
+│       ├── streamlit_app.py    # Веб-интерфейс (Streamlit)
+│       └── telegram_bot.py     # Чат-бот (Aiogram)
 │
-├── .env                   
-├── .gitignore
+├── docker/                     # Dockerfiles
+│   ├── backend.Dockerfile
+│   └── frontend.Dockerfile
+│
+├── docker-compose.yml          # Оркестрация контейнеров
+├── .env
 ├── requirements.txt
-└── README.md
+└── main.py                     # Скрипт для локального запуска/тестов
 ```
