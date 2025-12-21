@@ -11,6 +11,7 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 500))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 50))
 
 
+
 def fixed_size_split(text: str, chunk_size: int, overlap: int):
     """
     Делит текст на фиксированные чанки без рекурсивной логики.
@@ -26,7 +27,7 @@ def fixed_size_split(text: str, chunk_size: int, overlap: int):
     return chunks
 
 
-def split_documents_fixed(input_csv: str, output_path: str):
+def split_documents_fixed(input_csv: str, filename: str):
     """Фиксированное разбиение текстов на чанки"""
     print("start_simple_chunking...")
     df = pd.read_csv(input_csv)
@@ -53,11 +54,12 @@ def split_documents_fixed(input_csv: str, output_path: str):
                 "chunk_text": chunk
             })
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    output_chuncked_csv = os.path.join(CHUNKS_DIR, filename)
+    os.makedirs(os.path.dirname(output_chuncked_csv), exist_ok=True)
     chunks_df = pd.DataFrame(all_chunks)
-    chunks_df.to_csv(output_path, index=False)
+    chunks_df.to_csv(output_chuncked_csv, index=False)
 
-    print(f"Чанки сохранены в: {output_path}")
+    print(f"Чанки сохранены в: {output_chuncked_csv}")
     print(f"Всего чанков: {len(chunks_df)}")
 
 

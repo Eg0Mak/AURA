@@ -2,7 +2,7 @@
 import os
 import pandas as pd
 from dotenv import load_dotenv
-from src.config.llm import QueryExpander 
+from src.config.query_expander_model import QueryExpander 
 from tqdm import tqdm
 
 load_dotenv()

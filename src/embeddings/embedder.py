@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 CHUNKS_DIR = os.getenv("CHUNKS_DIR", "data/chunks")
 
-def get_embeddings(csv_name="chunks_semantic.csv", batch_size=64):
+def get_embeddings(csv_name="chunks_fixed.csv", batch_size=64):
     print('start getting embeddings....')
     cache_file = os.path.join(CHUNKS_DIR, "embeddings.npy")
     csv_path = os.path.join(CHUNKS_DIR, csv_name)
