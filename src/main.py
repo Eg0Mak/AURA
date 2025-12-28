@@ -25,7 +25,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 rag = RAGPipeline()
 rag.load()
 
-query = 'Что такое кредитная карта?'
+query = 'Условия по кредитной карте?' 
 
 result = asyncio.run(rag.run_pipeline(query))
 print(result)

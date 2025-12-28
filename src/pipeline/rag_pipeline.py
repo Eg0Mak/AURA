@@ -2,6 +2,7 @@ from src.data_preprocessing.clean_data import clean_csv
 from src.config.embbeding_model import embed_model
 from src.vector_store.rerank import Reranker 
 from src.config.query_expander_model import QueryExpander
+from src.config.llm import LLMAgent
 from src.chunking.simple_splitter import split_documents_fixed
 from src.embeddings.embedder import get_embeddings
 from src.vector_store.hybrid_search import build_or_load_tfidf, search_hybrid, build_faiss_index
@@ -31,6 +32,7 @@ class RAGPipeline:
         self.embedder = embed_model
         # self.QueryExpander = QueryExpander()
         self.reranker = Reranker()
+        self.llmagent = LLMAgent()
 
         self.embeddings = None
         self.chunks = None
@@ -78,7 +80,12 @@ class RAGPipeline:
         # 3. Rerank top-5
         reranked_chunks = self.reranker.rerank(query, hybrid_chunks, top_n=TOP_K_RERANK) 
 
-        return self._build_promt(query, reranked_chunks)
+        message = self._build_promt(query, reranked_chunks)
+        print('start generating...')
+        answer = self.llmagent.answer(message=message)
+
+
+        return answer
 
 
     def _build_promt(self, query: str, context_chunks: list) -> str:
@@ -87,10 +94,29 @@ class RAGPipeline:
             if "chunk_text" in chunk
         )
 
-        promt = f'''
-        Ты помощник AURA. Используй только контекст ниже, чтобы ответить на вопрос.
-        Если ответа нет в контексте, скажи "Я не знаю".
+        SYSTEM_PROMPT = '''
+        Ты — RAG-агент, отвечающий строго на основе CONTEXT.
 
+        ПРАВИЛА:
+        1. Используй ТОЛЬКО информацию из CONTEXT.
+        2. Не используй внешние знания, обучение модели или догадки.
+
+
+        ЗАПРЕЩЕНО:
+        - объяснять, почему ответа нет
+        - ссылаться на контекст формулировками вида
+        «в предоставленном контексте»
+        - рассуждать или делать предположения
+        - давать частичный ответ
+
+        ФОРМАТ ОТВЕТА:
+        - кратко
+        - по существу
+        - без вводных фраз
+        - без пояснений
+        '''
+
+        user_promt = f'''
         Контекст:
         {context_text}
 
@@ -98,6 +124,12 @@ class RAGPipeline:
         Ответ: 
         '''
 
-        return promt
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_promt},
+        ]
+
+        return messages
+
 
 
