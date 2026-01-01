@@ -2,16 +2,18 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
+MODELNAME = 'Qwen/Qwen2.5-0.5B-Instruct' #"Qwen/Qwen3-4B-Instruct-2507"
+
 class LLMAgent:
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained(
-            "Qwen/Qwen3-4B-Instruct-2507",
+            MODELNAME,
             use_fast=True
         ) # "Qwen/Qwen3-0.6B")  # "google/functiongemma-270m-it"
 
         self.model = AutoModelForCausalLM.from_pretrained(
-            "Qwen/Qwen3-4B-Instruct-2507",
-            dtype=torch.float16,
+            MODELNAME,
+            dtype=torch.float32,
             low_cpu_mem_usage=True
 
         )
@@ -30,7 +32,7 @@ class LLMAgent:
         with torch.inference_mode():
             outputs = self.model.generate(
                 **inputs,
-                max_new_tokens=128,
+                max_new_tokens=256,
                 do_sample=False,
                 eos_token_id=self.tokenizer.eos_token_id,
                 pad_token_id=self.tokenizer.eos_token_id,

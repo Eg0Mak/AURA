@@ -22,10 +22,45 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # TFIDF_TOP_N = int(os.getenv("TFIDF_TOP_N", 10))
 
 
-rag = RAGPipeline()
-rag.load()
+# rag = RAGPipeline()
+# rag.load()
 
-query = 'Условия по кредитной карте?' 
+# query = 'Условия по кредитной карте?' 
 
-result = asyncio.run(rag.run_pipeline(query))
-print(result)
+# result = asyncio.run(rag.run_pipeline(query))
+# print(result)
+
+import gradio as gr
+import asyncio
+
+# Инициализация pipeline
+rag_pipeline = RAGPipeline()
+rag_pipeline.load()
+
+async def chat_fn(message, state):
+    # Добавляем сообщение пользователя
+    state.append({"role": "user", "content": message})
+
+    # Генерация ответа
+    answer = await rag_pipeline.run_pipeline(message)
+    state.append({"role": "assistant", "content": answer})
+
+    # Возвращаем список сообщений напрямую
+    return state, state
+
+with gr.Blocks() as demo:
+    chatbot = gr.Chatbot()       # теперь принимает dict с role и content
+    state = gr.State([])
+
+    txt = gr.Textbox(placeholder="Введите вопрос...")
+    send_btn = gr.Button("Отправить")
+
+    # Привязка кнопки и Enter
+    send_btn.click(chat_fn, inputs=[txt, state], outputs=[chatbot, state])
+    txt.submit(chat_fn, inputs=[txt, state], outputs=[chatbot, state])
+
+    # Кнопка очистки
+    clear_btn = gr.Button("Очистить чат")
+    clear_btn.click(lambda: ([], []), outputs=[chatbot, state])
+
+demo.launch(share=True)

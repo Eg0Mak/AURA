@@ -84,6 +84,8 @@ class RAGPipeline:
         print('start generating...')
         answer = self.llmagent.answer(message=message)
 
+        answer = answer.replace('<|im_end|>', '')
+
 
         return answer
 
