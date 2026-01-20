@@ -16,7 +16,7 @@ rag_project/
 ├── src/
 │   ├── config/                 # Конфигурации (LLM, DB connection)
 │   │
-│   ├── core/                   # ВАШ ТЕКУЩИЙ КОД (переименовано для порядка)
+│   ├── core/                   
 │   │   ├── preprocessing/      # (бывший data_preprocessing)
 │   │   ├── chunking/
 │   │   ├── embeddings/
