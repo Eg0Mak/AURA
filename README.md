@@ -7,7 +7,6 @@
 **Гибридная RAG-система для поиска информации и генерации ответов по документам**
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python\&logoColor=white)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.x-EE4C2C?logo=pytorch\&logoColor=white)](https://pytorch.org/)
 [![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-0467DF)](https://github.com/facebookresearch/faiss)
 [![Transformers](https://img.shields.io/badge/Transformers-HuggingFace-FFD21E)](https://huggingface.co/docs/transformers)
 [![Gradio](https://img.shields.io/badge/Gradio-Interface-FF7C00?logo=gradio\&logoColor=white)](https://www.gradio.app/)
