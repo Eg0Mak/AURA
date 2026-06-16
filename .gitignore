@@ -14,3 +14,7 @@ data/chunks/*.json
 data/chunks/tfidf_cashe/*.npz
 data/chunks/tfidf_cashe/*.npy
 data/chunks/tfidf_cashe/*.pkl
+
+
+# Ignore system files
+*/.DS_Store
