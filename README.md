@@ -332,43 +332,58 @@ Pipeline выполняет:
 
 ## Конфигурация
 
+## Конфигурация
+
 Создайте файл `.env` в корневой директории проекта.
 
-Пример:
+Пример конфигурации:
 
 ```env
+# === Пути данных ===
 RAW_DATA_DIR=data/raw
 PROCESSED_DATA_DIR=data/processed
 CHUNKS_DIR=data/chunks
 
-HYBRID_ALPHA=0.7
-
-FAISS_TOP_N=10
-TFIDF_TOP_N=10
+# === Настройки RAG ===
 TOP_K_RERANK=5
+FAISS_TOP_N=11
+TFIDF_TOP_N=11
+CHUNK_SIZE=600
+CHUNK_OVERLAP=100
+HYBRID_ALPHA=0.6
 
-OPENAI_API_KEY=your_api_key
-OPENAI_BASE_URL=your_api_base_url
-LLM_MODEL=your_model_name
+# === Модели ===
+EMBEDDING_MODEL_NAME=ai-forever/ru-en-RoSBERTa
+RERANK_MODEL_NAME=DiTy/cross-encoder-russian-msmarco
+LLM_MODEL_NAME=HuggingFaceTB/SmolLM3-3B
 ```
 
 ### Основные параметры
 
-| Переменная           | Описание                              |
-| -------------------- | ------------------------------------- |
-| `RAW_DATA_DIR`       | Директория с исходными данными        |
-| `PROCESSED_DATA_DIR` | Директория с очищенными данными       |
-| `CHUNKS_DIR`         | Директория с чанками                  |
-| `HYBRID_ALPHA`       | Вес dense retrieval                   |
-| `FAISS_TOP_N`        | Количество кандидатов из FAISS        |
-| `TFIDF_TOP_N`        | Количество кандидатов из TF-IDF       |
-| `TOP_K_RERANK`       | Количество документов после reranking |
-| `OPENAI_API_KEY`     | API-ключ языковой модели              |
-| `OPENAI_BASE_URL`    | Адрес API                             |
-| `LLM_MODEL`          | Название используемой модели          |
+| Переменная             |                Значение по умолчанию | Описание                                                          |
+| ---------------------- | -----------------------------------: | ----------------------------------------------------------------- |
+| `RAW_DATA_DIR`         |                           `data/raw` | Директория с исходными данными                                    |
+| `PROCESSED_DATA_DIR`   |                     `data/processed` | Директория с очищенными данными                                   |
+| `CHUNKS_DIR`           |                        `data/chunks` | Директория для сохранения чанков                                  |
+| `TOP_K_RERANK`         |                                  `5` | Количество документов, возвращаемых после Cross-Encoder reranking |
+| `FAISS_TOP_N`          |                                 `11` | Количество кандидатов, получаемых из FAISS                        |
+| `TFIDF_TOP_N`          |                                 `11` | Количество кандидатов, получаемых с помощью TF-IDF                |
+| `CHUNK_SIZE`           |                                `600` | Максимальный размер одного чанка                                  |
+| `CHUNK_OVERLAP`        |                                `100` | Размер пересечения между соседними чанками                        |
+| `HYBRID_ALPHA`         |                                `0.6` | Вес семантической оценки при объединении FAISS и TF-IDF           |
+| `EMBEDDING_MODEL_NAME` |          `ai-forever/ru-en-RoSBERTa` | Модель для построения эмбеддингов документов и запросов           |
+| `RERANK_MODEL_NAME`    | `DiTy/cross-encoder-russian-msmarco` | Cross-Encoder модель для повторного ранжирования кандидатов       |
+| `LLM_MODEL_NAME`       |           `HuggingFaceTB/SmolLM3-3B` | Языковая модель для генерации итогового ответа                    |
 
-Названия переменных должны соответствовать конфигурационным файлам проекта.
+Значение `HYBRID_ALPHA=0.6` означает, что при гибридном поиске больший вес получает семантическая оценка FAISS, а оставшаяся часть приходится на TF-IDF:
 
+```text
+hybrid_score =
+    0.6 × dense_score
+    + 0.4 × sparse_score
+```
+
+Размер чанка и пересечение между соседними фрагментами задаются параметрами `CHUNK_SIZE` и `CHUNK_OVERLAP`
 ---
 
 ## Запуск
