@@ -265,13 +265,12 @@ AURA/
 | Категория        | Технологии                          |
 | ---------------- | ----------------------------------- |
 | Язык             | Python                              |
-| Deep Learning    | PyTorch                             |
 | NLP              | Transformers, Sentence Transformers |
 | Vector Search    | FAISS                               |
 | Sparse Retrieval | TF-IDF, Scikit-learn                |
 | Data Processing  | Pandas, NumPy                       |
 | Interface        | Gradio                              |
-| LLM Integration  | OpenAI-compatible API               |
+| LLM Integration  | Hugging Face                        |
 
 ---
 
