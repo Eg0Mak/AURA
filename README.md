@@ -6,12 +6,20 @@
 
 **Гибридная RAG-система для поиска информации и генерации ответов по документам**
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python\&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-0467DF)](https://github.com/facebookresearch/faiss)
 [![Transformers](https://img.shields.io/badge/Transformers-HuggingFace-FFD21E)](https://huggingface.co/docs/transformers)
-[![Gradio](https://img.shields.io/badge/Gradio-Interface-FF7C00?logo=gradio\&logoColor=white)](https://www.gradio.app/)
+[![Gradio](https://img.shields.io/badge/Gradio-Interface-FF7C00?logo=gradio&logoColor=white)](https://www.gradio.app/)
 
 </div>
+
+<p align="center">
+  <img src="images/interface.png" width="1000" alt="AURA Interface"/>
+</p>
+
+<p align="center">
+  <em>Интерфейс AURA для поиска информации по документам с использованием гибридного RAG-пайплайна.</em>
+</p>
 
 ---
 
@@ -31,6 +39,18 @@ AURA объединяет несколько подходов к поиску:
 * интерактивный интерфейс на Gradio.
 
 Основная идея системы — использовать быстрый поиск для отбора кандидатов, а затем более точную модель для финальной сортировки найденных документов.
+
+---
+
+## Возможности
+
+* Гибридный поиск по документам: FAISS + TF-IDF.
+* Семантический поиск по смыслу пользовательского запроса.
+* Лексический поиск по точным совпадениям терминов.
+* Cross-Encoder reranking для улучшения порядка найденных фрагментов.
+* Генерация ответа на основе релевантного контекста.
+* Интерактивный веб-интерфейс на Gradio.
+* Настраиваемый retrieval-пайплайн через `.env`.
 
 ---
 
@@ -153,11 +173,11 @@ hybrid_score =
 
 Гибридный поиск объединяет преимущества двух подходов.
 
-| Метод         | Преимущество                | Ограничение                     |
-| ------------- | --------------------------- | ------------------------------- |
-| FAISS         | Находит документы по смыслу | Может пропускать точные термины |
-| TF-IDF        | Находит точные совпадения   | Не учитывает перефразирование   |
-| Hybrid Search | Объединяет оба сигнала      | Требует настройки веса `alpha`  |
+| Метод | Преимущество | Ограничение |
+| --- | --- | --- |
+| FAISS | Находит документы по смыслу | Может пропускать точные термины |
+| TF-IDF | Находит точные совпадения | Не учитывает перефразирование |
+| Hybrid Search | Объединяет оба сигнала | Требует настройки веса `alpha` |
 
 ---
 
@@ -224,6 +244,14 @@ DiTy/cross-encoder-russian-msmarco
 
 Используется для повторной сортировки документов после гибридного поиска.
 
+### Language Model
+
+```text
+HuggingFaceTB/SmolLM3-3B
+```
+
+Используется для генерации итогового ответа на основе найденного контекста.
+
 ---
 
 ## Структура проекта
@@ -237,6 +265,7 @@ AURA/
 │   └── chunks/
 │
 ├── images/
+│   ├── interface.png
 │   ├── indexing_pipeline.png
 │   └── query_pipeline.png
 │
@@ -262,15 +291,15 @@ AURA/
 
 ## Технологический стек
 
-| Категория        | Технологии                          |
-| ---------------- | ----------------------------------- |
-| Язык             | Python                              |
-| NLP              | Transformers, Sentence Transformers |
-| Vector Search    | FAISS                               |
-| Sparse Retrieval | TF-IDF, Scikit-learn                |
-| Data Processing  | Pandas, NumPy                       |
-| Interface        | Gradio                              |
-| LLM Integration  | Hugging Face                        |
+| Категория | Технологии |
+| --- | --- |
+| Язык | Python |
+| NLP | Transformers, Sentence Transformers |
+| Vector Search | FAISS |
+| Sparse Retrieval | TF-IDF, Scikit-learn |
+| Data Processing | Pandas, NumPy |
+| Interface | Gradio |
+| LLM Integration | Hugging Face |
 
 ---
 
@@ -332,8 +361,6 @@ Pipeline выполняет:
 
 ## Конфигурация
 
-## Конфигурация
-
 Создайте файл `.env` в корневой директории проекта.
 
 Пример конфигурации:
@@ -360,20 +387,20 @@ LLM_MODEL_NAME=HuggingFaceTB/SmolLM3-3B
 
 ### Основные параметры
 
-| Переменная             |                Значение по умолчанию | Описание                                                          |
-| ---------------------- | -----------------------------------: | ----------------------------------------------------------------- |
-| `RAW_DATA_DIR`         |                           `data/raw` | Директория с исходными данными                                    |
-| `PROCESSED_DATA_DIR`   |                     `data/processed` | Директория с очищенными данными                                   |
-| `CHUNKS_DIR`           |                        `data/chunks` | Директория для сохранения чанков                                  |
-| `TOP_K_RERANK`         |                                  `5` | Количество документов, возвращаемых после Cross-Encoder reranking |
-| `FAISS_TOP_N`          |                                 `11` | Количество кандидатов, получаемых из FAISS                        |
-| `TFIDF_TOP_N`          |                                 `11` | Количество кандидатов, получаемых с помощью TF-IDF                |
-| `CHUNK_SIZE`           |                                `600` | Максимальный размер одного чанка                                  |
-| `CHUNK_OVERLAP`        |                                `100` | Размер пересечения между соседними чанками                        |
-| `HYBRID_ALPHA`         |                                `0.6` | Вес семантической оценки при объединении FAISS и TF-IDF           |
-| `EMBEDDING_MODEL_NAME` |          `ai-forever/ru-en-RoSBERTa` | Модель для построения эмбеддингов документов и запросов           |
-| `RERANK_MODEL_NAME`    | `DiTy/cross-encoder-russian-msmarco` | Cross-Encoder модель для повторного ранжирования кандидатов       |
-| `LLM_MODEL_NAME`       |           `HuggingFaceTB/SmolLM3-3B` | Языковая модель для генерации итогового ответа                    |
+| Переменная | Значение по умолчанию | Описание |
+| --- | ---: | --- |
+| `RAW_DATA_DIR` | `data/raw` | Директория с исходными данными |
+| `PROCESSED_DATA_DIR` | `data/processed` | Директория с очищенными данными |
+| `CHUNKS_DIR` | `data/chunks` | Директория для сохранения чанков |
+| `TOP_K_RERANK` | `5` | Количество документов, возвращаемых после Cross-Encoder reranking |
+| `FAISS_TOP_N` | `11` | Количество кандидатов, получаемых из FAISS |
+| `TFIDF_TOP_N` | `11` | Количество кандидатов, получаемых с помощью TF-IDF |
+| `CHUNK_SIZE` | `600` | Максимальный размер одного чанка |
+| `CHUNK_OVERLAP` | `100` | Размер пересечения между соседними чанками |
+| `HYBRID_ALPHA` | `0.6` | Вес семантической оценки при объединении FAISS и TF-IDF |
+| `EMBEDDING_MODEL_NAME` | `ai-forever/ru-en-RoSBERTa` | Модель для построения эмбеддингов документов и запросов |
+| `RERANK_MODEL_NAME` | `DiTy/cross-encoder-russian-msmarco` | Cross-Encoder модель для повторного ранжирования кандидатов |
+| `LLM_MODEL_NAME` | `HuggingFaceTB/SmolLM3-3B` | Языковая модель для генерации итогового ответа |
 
 Значение `HYBRID_ALPHA=0.6` означает, что при гибридном поиске больший вес получает семантическая оценка FAISS, а оставшаяся часть приходится на TF-IDF:
 
@@ -383,7 +410,8 @@ hybrid_score =
     + 0.4 × sparse_score
 ```
 
-Размер чанка и пересечение между соседними фрагментами задаются параметрами `CHUNK_SIZE` и `CHUNK_OVERLAP`
+Размер чанка и пересечение между соседними фрагментами задаются параметрами `CHUNK_SIZE` и `CHUNK_OVERLAP`.
+
 ---
 
 ## Запуск
@@ -539,3 +567,11 @@ Fast Retrieval → Accurate Reranking
 ```
 
 Такой подход позволяет сохранить приемлемую скорость поиска и повысить качество финальной выдачи.
+
+---
+
+## Результат
+
+AURA реализует полный RAG-пайплайн: от подготовки документов и построения индексов до гибридного поиска, reranking и генерации ответа.
+
+Проект демонстрирует практическое применение современных NLP-подходов для поиска информации в документах и построения интерактивного ассистента на базе retrieval-augmented generation.
