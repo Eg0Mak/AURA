@@ -21,11 +21,17 @@ TFIDF_NORMS_FILE = os.path.join(TFIDF_CACHE_DIR, "tfidf_norms.npy")    # l2 но
 
 
 # FAISS
-def build_faiss_index(embeddings):
+def build_faiss_index(embeddings, force_rebuild=False):
     """Строим или загружаем FAISS-индекс"""
-    if os.path.exists(INDEX_FILE):
+    if os.path.exists(INDEX_FILE) and not force_rebuild:
         print("Используем кэшированный FAISS-индекс...")
-        return faiss.read_index(INDEX_FILE)
+        index = faiss.read_index(INDEX_FILE)
+        if index.ntotal == embeddings.shape[0] and index.d == embeddings.shape[1]:
+            return index
+        print("Кэш FAISS не совпадает с эмбеддингами, пересоздаём индекс...")
+
+    if force_rebuild and os.path.exists(INDEX_FILE):
+        print("Данные изменились, пересоздаём FAISS-индекс...")
 
     print("Создаём новый FAISS-индекс...")
     d = embeddings.shape[1]
@@ -39,28 +45,40 @@ def build_faiss_index(embeddings):
 
 
 # TF-IDF
-def build_or_load_tfidf(chunks, max_features=50000):
+def build_or_load_tfidf(chunks, max_features=50000, force_rebuild=False):
     """
     Создаёт или загружает TF-IDF матрицу (sparse) и векторизатор.
     Сохраняет также L2-нормы строк TF-IDF в отдельный файл для быстрого подсчёта cosine.
     Возвращает (vectorizer, tfidf_matrix).
     """
     # Если кэши есть — загружаем
-    if os.path.exists(TFIDF_VECTORIZER_FILE) and os.path.exists(TFIDF_MATRIX_FILE):
+    if (
+        os.path.exists(TFIDF_VECTORIZER_FILE)
+        and os.path.exists(TFIDF_MATRIX_FILE)
+        and not force_rebuild
+    ):
         print("Используем кэшированный TF-IDF...")
         with open(TFIDF_VECTORIZER_FILE, "rb") as f:
             vectorizer = pickle.load(f)
         tfidf_matrix = load_npz(TFIDF_MATRIX_FILE)
 
-        # загружаем нормы, если есть
-        if os.path.exists(TFIDF_NORMS_FILE):
-            tfidf_norms = np.load(TFIDF_NORMS_FILE)
+        if tfidf_matrix.shape[0] != len(chunks):
+            print("Кэш TF-IDF не совпадает с чанками, пересоздаём...")
         else:
-            # если норм нет, вычислим и сохраним
-            tfidf_norms = _compute_and_save_tfidf_norms(tfidf_matrix)
-        # сохраняем нормы в объект vectorizer для удобства (необязательно)
-        setattr(vectorizer, "_tfidf_norms", tfidf_norms)
-        return vectorizer, tfidf_matrix
+            # загружаем нормы, если есть
+            if os.path.exists(TFIDF_NORMS_FILE):
+                tfidf_norms = np.load(TFIDF_NORMS_FILE)
+                if tfidf_norms.shape[0] != len(chunks):
+                    tfidf_norms = _compute_and_save_tfidf_norms(tfidf_matrix)
+            else:
+                # если норм нет, вычислим и сохраним
+                tfidf_norms = _compute_and_save_tfidf_norms(tfidf_matrix)
+            # сохраняем нормы в объект vectorizer для удобства (необязательно)
+            setattr(vectorizer, "_tfidf_norms", tfidf_norms)
+            return vectorizer, tfidf_matrix
+
+    if force_rebuild and os.path.exists(TFIDF_MATRIX_FILE):
+        print("Данные изменились, пересоздаём TF-IDF...")
 
     # Иначе — создаём новый vectorizer и матрицу
     print("Создаём новый TF-IDF-векторизатор...")

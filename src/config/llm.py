@@ -9,7 +9,7 @@ class LLMAgent:
         self.tokenizer = AutoTokenizer.from_pretrained(
             MODELNAME,
             use_fast=True
-        ) # "Qwen/Qwen3-0.6B")  # "google/functiongemma-270m-it"
+        )
 
         self.model = AutoModelForCausalLM.from_pretrained(
             MODELNAME,

@@ -24,7 +24,22 @@ output_chuncked_csv = os.path.join(CHUNKS_DIR, "chunks_fixed.csv")
 TOP_K_RERANK = int(os.getenv("TOP_K_RERANK", 5)) # топ после гибридного поиска, который идёт на rerank
 FAISS_TOP_N = int(os.getenv("FAISS_TOP_N", 10))
 TFIDF_TOP_N = int(os.getenv("TFIDF_TOP_N", 10))
-ALPHA = float(os.getenv("HYBRID_ALPHA"))
+
+
+def _get_float_env(name: str, default: float) -> float:
+    raw_value = os.getenv(name)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+
+    try:
+        return float(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"{name} должен быть числом, сейчас: {raw_value!r}") from exc
+
+
+ALPHA = _get_float_env("HYBRID_ALPHA", 0.6)
+if not 0 <= ALPHA <= 1:
+    raise ValueError(f"HYBRID_ALPHA должен быть в диапазоне от 0 до 1, сейчас: {ALPHA}")
 
 
 class RAGPipeline:
@@ -46,20 +61,45 @@ class RAGPipeline:
         self._load_sources()
     
     def _load_sources(self):
-        # 1. Очистка данных
-        clean_csv('websites_updated.csv')
+        sources_changed = self._prepare_sources()
 
-        # 2. Chunking
-        split_documents_fixed(input_clean_csv, 'chunks_fixed.csv')
+        # 1. Embeddings
+        self.embeddings, self.chunks = get_embeddings(force_rebuild=sources_changed)
 
-        # 3. Embeddings
-        self.embeddings, self.chunks = get_embeddings()
+        # 2. FAISS Index
+        self.index = build_faiss_index(self.embeddings, force_rebuild=sources_changed)
 
-        # 4. FAISS Index
-        self.index = build_faiss_index(self.embeddings)
+        # 3. Гибридный поиск
+        self.vectorizer, self.tfidf_matrix = build_or_load_tfidf(
+            self.chunks,
+            force_rebuild=sources_changed,
+        )
 
-        # 5. Гипбридный поиск
-        self.vectorizer, self.tfidf_matrix = build_or_load_tfidf(self.chunks)
+    def _prepare_sources(self) -> bool:
+        raw_csv = os.path.join(RAW_DATA_DIR, "websites_updated.csv")
+        sources_changed = False
+
+        if not os.path.exists(input_clean_csv) or self._is_newer(raw_csv, input_clean_csv):
+            clean_csv("websites_updated.csv")
+            sources_changed = True
+        else:
+            print(f"Используем существующий очищенный CSV: {input_clean_csv}")
+
+        if not os.path.exists(output_chuncked_csv) or self._is_newer(input_clean_csv, output_chuncked_csv):
+            split_documents_fixed(input_clean_csv, "chunks_fixed.csv")
+            sources_changed = True
+        else:
+            print(f"Используем существующие чанки: {output_chuncked_csv}")
+
+        return sources_changed
+
+    @staticmethod
+    def _is_newer(source_path: str, target_path: str) -> bool:
+        if not os.path.exists(source_path):
+            raise FileNotFoundError(f"Файл не найден: {source_path}")
+        if not os.path.exists(target_path):
+            return True
+        return os.path.getmtime(source_path) > os.path.getmtime(target_path)
 
 
 
@@ -132,6 +172,5 @@ class RAGPipeline:
         ]
 
         return messages
-
 
 
