@@ -49,7 +49,7 @@ async def chat_fn(message, state):
     return state, state
 
 with gr.Blocks() as demo:
-    chatbot = gr.Chatbot()       # теперь принимает dict с role и content
+    chatbot = gr.Chatbot(type="messages")
     state = gr.State([])
 
     txt = gr.Textbox(placeholder="Введите вопрос...")
