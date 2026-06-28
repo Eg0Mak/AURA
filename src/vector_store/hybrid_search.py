@@ -1,4 +1,6 @@
 # src/vector_store/hybrid_search.py
+import hashlib
+import json
 import os
 import faiss
 import numpy as np
@@ -6,27 +8,66 @@ import pickle
 from dotenv import load_dotenv
 from sklearn.feature_extraction.text import TfidfVectorizer
 # from sklearn.metrics.pairwise import cosine_similarity  # больше не используем для больших матриц
-from scipy.sparse import save_npz, load_npz, csr_matrix, issparse
+from scipy.sparse import save_npz, load_npz, issparse
 
 load_dotenv()
 
 CHUNKS_DIR = os.getenv("CHUNKS_DIR", "data/chunks")
 INDEX_FILE = os.path.join(CHUNKS_DIR, "faiss.index")
+INDEX_METADATA_FILE = os.path.join(CHUNKS_DIR, "faiss.meta.json")
 TFIDF_CACHE_DIR = os.path.join(CHUNKS_DIR, "tfidf_cache")
 os.makedirs(TFIDF_CACHE_DIR, exist_ok=True)
 
 TFIDF_VECTORIZER_FILE = os.path.join(TFIDF_CACHE_DIR, "vectorizer.pkl")
 TFIDF_MATRIX_FILE = os.path.join(TFIDF_CACHE_DIR, "tfidf_matrix.npz")  # для save_npz/load_npz
 TFIDF_NORMS_FILE = os.path.join(TFIDF_CACHE_DIR, "tfidf_norms.npy")    # l2 нормы строк
+TFIDF_METADATA_FILE = os.path.join(TFIDF_CACHE_DIR, "tfidf.meta.json")
+
+
+def _load_json(path: str):
+    if not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _save_json(path: str, data: dict):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _chunks_sha1(chunks: list) -> str:
+    digest = hashlib.sha1()
+    for chunk in chunks:
+        digest.update(str(chunk.get("web_id", "")).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(chunk.get("url", "")).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(chunk.get("kind", "")).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(chunk.get("chunk_text", "")).encode("utf-8"))
+        digest.update(b"\0\0")
+    return digest.hexdigest()
 
 
 # FAISS
 def build_faiss_index(embeddings, force_rebuild=False):
     """Строим или загружаем FAISS-индекс"""
+    expected_metadata = {
+        "rows": int(embeddings.shape[0]),
+        "embedding_dim": int(embeddings.shape[1]),
+        "index_type": "IndexFlatIP",
+    }
+
     if os.path.exists(INDEX_FILE) and not force_rebuild:
         print("Используем кэшированный FAISS-индекс...")
         index = faiss.read_index(INDEX_FILE)
-        if index.ntotal == embeddings.shape[0] and index.d == embeddings.shape[1]:
+        metadata = _load_json(INDEX_METADATA_FILE)
+        metadata_matches = (
+            metadata is not None
+            and all(metadata.get(key) == value for key, value in expected_metadata.items())
+        )
+        if index.ntotal == embeddings.shape[0] and index.d == embeddings.shape[1] and metadata_matches:
             return index
         print("Кэш FAISS не совпадает с эмбеддингами, пересоздаём индекс...")
 
@@ -40,6 +81,7 @@ def build_faiss_index(embeddings, force_rebuild=False):
     faiss.normalize_L2(embeddings)  # безопасно даже если уже нормализованы
     index.add(embeddings)
     faiss.write_index(index, INDEX_FILE)
+    _save_json(INDEX_METADATA_FILE, expected_metadata)
     print(f"Индекс FAISS сохранён: {INDEX_FILE}")
     return index
 
@@ -51,6 +93,13 @@ def build_or_load_tfidf(chunks, max_features=50000, force_rebuild=False):
     Сохраняет также L2-нормы строк TF-IDF в отдельный файл для быстрого подсчёта cosine.
     Возвращает (vectorizer, tfidf_matrix).
     """
+    chunks_hash = _chunks_sha1(chunks)
+    expected_metadata = {
+        "rows": len(chunks),
+        "chunks_hash": chunks_hash,
+        "max_features": max_features,
+    }
+
     # Если кэши есть — загружаем
     if (
         os.path.exists(TFIDF_VECTORIZER_FILE)
@@ -61,8 +110,14 @@ def build_or_load_tfidf(chunks, max_features=50000, force_rebuild=False):
         with open(TFIDF_VECTORIZER_FILE, "rb") as f:
             vectorizer = pickle.load(f)
         tfidf_matrix = load_npz(TFIDF_MATRIX_FILE)
+        metadata = _load_json(TFIDF_METADATA_FILE)
+        metadata_matches = (
+            metadata is not None
+            and all(metadata.get(key) == value for key, value in expected_metadata.items())
+            and metadata.get("features") == tfidf_matrix.shape[1]
+        )
 
-        if tfidf_matrix.shape[0] != len(chunks):
+        if tfidf_matrix.shape[0] != len(chunks) or not metadata_matches:
             print("Кэш TF-IDF не совпадает с чанками, пересоздаём...")
         else:
             # загружаем нормы, если есть
@@ -94,6 +149,8 @@ def build_or_load_tfidf(chunks, max_features=50000, force_rebuild=False):
     # Вычисляем и сохраняем L2-нормы строк
     tfidf_norms = _compute_and_save_tfidf_norms(tfidf_matrix)
     setattr(vectorizer, "_tfidf_norms", tfidf_norms)
+    expected_metadata["features"] = tfidf_matrix.shape[1]
+    _save_json(TFIDF_METADATA_FILE, expected_metadata)
 
     print(f"TF-IDF сохранён в {TFIDF_CACHE_DIR}")
     return vectorizer, tfidf_matrix

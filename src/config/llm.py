@@ -1,8 +1,11 @@
-# Load model directly
+import os
+from dotenv import load_dotenv
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
-MODELNAME = 'Qwen/Qwen2.5-0.5B-Instruct' #"Qwen/Qwen3-4B-Instruct-2507"
+load_dotenv()
+
+MODELNAME = os.getenv("LLM_MODEL_NAME", "Qwen/Qwen2.5-0.5B-Instruct")
 
 class LLMAgent:
     def __init__(self):
@@ -39,4 +42,8 @@ class LLMAgent:
                 use_cache=True
             )
 
-        return self.tokenizer.decode(outputs[0][inputs["input_ids"].shape[-1]:])
+        return self.tokenizer.decode(
+            outputs[0][inputs["input_ids"].shape[-1]:],
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=True,
+        ).strip()

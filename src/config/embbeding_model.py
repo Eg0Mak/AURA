@@ -5,10 +5,22 @@ from sentence_transformers import SentenceTransformer
 from llama_index.core.embeddings import BaseEmbedding
 from typing import List
 from pydantic import ConfigDict
+import torch
 
 load_dotenv()
 
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "intfloat/multilingual-e5-base")
+EMBEDDING_DEVICE = os.getenv("EMBEDDING_DEVICE", "auto")
+
+
+def resolve_embedding_device(device: str = EMBEDDING_DEVICE) -> str:
+    if device != "auto":
+        return device
+    if torch.backends.mps.is_available():
+        return "mps"
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
 
 class EmbedModelWrapper(BaseEmbedding):
     """Обёртка для SentenceTransformer для LlamaIndex"""
@@ -17,7 +29,8 @@ class EmbedModelWrapper(BaseEmbedding):
     
     def __init__(self, model_name: str):
         super().__init__(model_name=model_name)
-        self.model = SentenceTransformer(model_name, device='mps')  # Теперь работает
+        self.device = resolve_embedding_device()
+        self.model = SentenceTransformer(model_name, device=self.device)
 
     def _get_query_embedding(self, query: str) -> List[float]:
         return self.model.encode(query, normalize_embeddings=True).tolist()
